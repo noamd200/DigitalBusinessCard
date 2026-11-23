@@ -2,14 +2,21 @@ package com.example.digitalcard;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+
+import androidx.annotation.NonNull;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.database.DatabaseReference;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -20,6 +27,8 @@ public class MainActivity extends AppCompatActivity {
     Button btnCreateCard;
     Button btnFillSample;
     Button btnAbout;
+
+    private String editKey = null;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,7 +44,7 @@ public class MainActivity extends AppCompatActivity {
         btnFillSample = findViewById(R.id.btnFillSample);
         btnAbout = findViewById(R.id.btnAbout);
 
-        btnCreateCard.setOnClickListener(v -> createCard());
+        btnCreateCard.setOnClickListener(v -> saveCard());
         btnFillSample.setOnClickListener(v -> fillSample());
         btnAbout.setOnClickListener(v -> showAboutScreen());
     }
@@ -78,14 +87,59 @@ public class MainActivity extends AppCompatActivity {
         return isValid;
     }
 
-    public void createCard(){
-        if (errorCheck()) {
-            Intent intent = new Intent(MainActivity.this, ThirdActivity.class);
-            intent.putExtra("NAME", etFullName.getText().toString().trim());
-            intent.putExtra("PROF", etJobTitle.getText().toString().trim());
-            intent.putExtra("PHONE", etPhone.getText().toString().trim());
-            intent.putExtra("WEBSITE", etWebsite.getText().toString().trim());
-            startActivity(intent);
+    private void saveCard() {
+        String name  = etFullName.getText().toString().trim();
+        String job   = etJobTitle.getText().toString().trim();
+        String phone = etPhone.getText().toString().trim();
+        String site  = etWebsite.getText().toString().trim();
+
+        if (name.isEmpty()) {
+            Toast.makeText(this, "חובה למלא שם", Toast.LENGTH_SHORT).show();
+            return;
         }
+        if (!FirebaseConfig.isConfigured()) {
+            Toast.makeText(this, "חסרים ערכים ב-FirebaseConfig.java", Toast.LENGTH_LONG).show();
+            return;
+        }
+
+        final Card card = new Card(name, job, phone, site);
+        DatabaseReference ref = CardsDb.cards(this);
+
+        if (editKey == null) {
+            DatabaseReference newCardRef = ref.push();
+            card.setKey(newCardRef.getKey()); // only if Card has setKey(String)
+
+            newCardRef.setValue(card)
+                    .addOnSuccessListener(unused -> {
+                        Toast.makeText(MainActivity.this, "הכרטיס נשמר בהצלחה", Toast.LENGTH_SHORT).show();
+                        clearForm();
+                        openCard(card);
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(MainActivity.this, "שגיאה בשמירה: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    );
+
+        } else {
+            // ===== עדכון (Update) — נשלים בשלב 6 =====
+        }
+    }
+
+    private void openCard(Card c) {
+        Intent intent = new Intent(this, ThirdActivity.class);
+        intent.putExtra("KEY", c.getKey());
+        intent.putExtra("NAME", c.getName());
+        intent.putExtra("PROF", c.getJob());
+        intent.putExtra("PHONE", c.getPhone());
+        intent.putExtra("WEBSITE", c.getSite());
+        startActivity(intent);
+    }
+
+    // מרוקן את ארבעת השדות, כדי שאפשר יהיה להקליד מיד כרטיס חדש
+    private void clearForm() {
+        etFullName.setText("");
+        etJobTitle.setText("");
+        etPhone.setText("");
+        etWebsite.setText("");
+        etFullName.requestFocus();
     }
 }
