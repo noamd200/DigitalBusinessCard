@@ -1,11 +1,16 @@
 package com.example.digitalcard;
 
+import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
+import androidx.appcompat.widget.Toolbar;
+
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -28,13 +33,22 @@ public class MainActivity extends AppCompatActivity {
     Button btnFillSample;
     Button btnAbout;
 
+    Toolbar toolbar;
+
     private String editKey = null;
 
+
+
+    @SuppressLint("SetTextI18n")
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
+
+        toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
 
         etFullName = findViewById(R.id.etFullName);
         etJobTitle = findViewById(R.id.etJobTitle);
@@ -47,6 +61,52 @@ public class MainActivity extends AppCompatActivity {
         btnCreateCard.setOnClickListener(v -> saveCard());
         btnFillSample.setOnClickListener(v -> fillSample());
         btnAbout.setOnClickListener(v -> showAboutScreen());
+
+        editKey = getIntent().getStringExtra("KEY");
+        if (editKey != null) {
+            Intent intent = getIntent();
+            if (intent != null) {
+                String name = intent.getStringExtra("NAME");
+                String title = intent.getStringExtra("PROF");
+                String phone = intent.getStringExtra("PHONE");
+                String website = intent.getStringExtra("WEBSITE");
+
+                // Fill the 4 fields
+                etFullName.setText(name);
+                etJobTitle.setText(title);
+                etPhone.setText(phone);
+                etWebsite.setText(website);
+
+                // Update button and toolbar title
+                btnCreateCard.setText("Save Changes");
+                if (getSupportActionBar() != null) {
+                    getSupportActionBar().setTitle("Edit Card");
+                }
+            }
+        }
+
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        menu.findItem(R.id.action_return).setVisible(false);
+        menu.findItem(R.id.action_edit).setVisible(false);
+
+        menu.findItem(R.id.action_share).setVisible(false);
+        menu.findItem(R.id.action_call).setVisible(false);
+        menu.findItem(R.id.action_site).setVisible(false);
+        return true;
+    }
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        int id = item.getItemId();
+        if (item.getItemId() == R.id.action_list) {
+            startActivity(new Intent(this, CardsListActivity.class));
+            return true;
+        }
+
+        return super.onOptionsItemSelected(item);
     }
 
     public void fillSample() {
@@ -120,7 +180,16 @@ public class MainActivity extends AppCompatActivity {
                     );
 
         } else {
-            // ===== עדכון (Update) — נשלים בשלב 6 =====
+            card.setKey(editKey);
+            ref.child(editKey).setValue(card)
+                    .addOnSuccessListener(unused -> {
+                        Toast.makeText(MainActivity.this, "Card updated", Toast.LENGTH_SHORT).show();
+                        openCard(card); // Open ThirdActivity with the new values
+                        finish();       // Close edit mode so Back goes to the list
+                    })
+                    .addOnFailureListener(e ->
+                            Toast.makeText(MainActivity.this, "Update failed: " + e.getMessage(), Toast.LENGTH_LONG).show()
+                    );
         }
     }
 
